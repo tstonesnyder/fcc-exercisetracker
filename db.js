@@ -49,12 +49,24 @@ const addUser = (reqBody, done) => {
 const addExercise = (reqBody, done) => {
   console.log('About to add exercise to user. reqBody:\n', reqBody);
 
+  // UGGH, DO MY OWN VALIDATION OF THE 'log' SUBDOCUMENT BECAUSE MONGOOSE IS IGNORING ITS SCHEMA AND I AM TIRED OF RESEARCHING WHY.
+  if (!reqBody.description) return done(new MyError('Description is required', 400));
+  
+  if (!reqBody.duration) return done(new MyError('Duration is required', 400));
+  const duration = parseInt(reqBody.duration);
+  if (isNaN(duration)) return done(new MyError('Duration must be an integer', 400));
+  
+  if (!reqBody.date) return done(new MyError('Date is required', 400));
+  const date = new Date(reqBody.date);
+  if (isNaN(date)) return done(new MyError('Date must be a valid date in the format yyyy-mm-dd', 400));
+  // END OF UGGGH SECTION
+
   const query = { _id: reqBody[':_id'] };
   const update = {
     $push: { log: {
       description: reqBody.description,
-      duration: reqBody.duration,
-      date: reqBody.date
+      duration: duration,
+      date: date
     }}
   };
   const options = { new: true }; // return updated doc inst of original
