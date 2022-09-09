@@ -4,8 +4,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const e = require('express');
 require('dotenv').config();
+const db = require("./db.js"); // My code
 
 const app = express();
 console.log('INDEX.JS');
@@ -35,10 +35,9 @@ app.get("/is-mongoose-ok", function (req, res) {
   res.json({ isMongooseOk: !!mongoose.connection.readyState });
 });
 
-const addUser = require("./db.js").addUser;
 app.post('/api/users', urlencodedParser, (req, res, next) => {
   // urlencodedParser is run just before this. It makes the body data available on the req obj.
-  addUser(req.body, function (err, data) {
+  db.addUser(req.body, function (err, data) {
     if (err) {
       if (err.name === "ValidationError") {
         // Pass the custom error msg to the user:
@@ -54,14 +53,25 @@ app.post('/api/users', urlencodedParser, (req, res, next) => {
   });
 });
 
-const addExercise = require("./db.js").addExercise;
+app.get('/api/users', urlencodedParser, (req, res, next) => {
+  db.getAllUsers(function (err, data) {
+    if (err) {
+      // If PRODUCTION, user will get "Internal server error" message.
+      // If DEVELOPMENT, user will get full error message.
+      return next(err);
+    } else {
+      res.json(data);
+    }
+  });
+});
+
 app.post('/api/users/:_id/exercises', urlencodedParser, (req, res, next) => {
   if (req.params._id !== req.body[':_id']) {
     // NOTE: Really both of these ids should not be sent, but I'm not changing the front end.
     console.error('req.params._id:', req.params._id, 'req.body._id:', req.body[':_id']);
     res.status(400).json({ Error: 'Mismatched user _id!' });
   } else {
-    addExercise(req.body, function (err, data) {
+    db.addExercise(req.body, function (err, data) {
       if (err) {
         if (err.name === "ValidationError") {
           // Pass the custom error msg to the user:
@@ -78,12 +88,11 @@ app.post('/api/users/:_id/exercises', urlencodedParser, (req, res, next) => {
   }
 });
 
-const getLogs = require("./db.js").getLogs;
 // PATH:   /api/users/:_id/logs?[from][to][limit]
 // from, to, and limit are optional
 // http://localhost:3000/api/users/6314b502a574d211edcf772d/logs
 app.get('/api/users/:_id/logs', (req, res, next) => {
-  getLogs(req.params._id, req.query, function (err, data) {
+  db.getLogs(req.params._id, req.query, function (err, data) {
     if (err) {
       // If PRODUCTION, user will get "Internal server error" message.
       // If DEVELOPMENT, user will get full error message.

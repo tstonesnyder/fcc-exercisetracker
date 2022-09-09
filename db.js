@@ -46,28 +46,45 @@ const addUser = (reqBody, done) => {
   });
 };
 
+const getAllUsers = (done) => {
+  console.log('Getting all users');
+
+  const projection = { username: 1 };
+
+  User.find({}, projection, (err, data) => {
+    if (err) {
+      // Log full error msg:
+      console.error('Error getting list of all users.\n', err);
+      return done(err);
+    };
+    done(null, data);
+  });
+};
+
 const addExercise = (reqBody, done) => {
   console.log('About to add exercise to user. reqBody:\n', reqBody);
 
   // UGGH, DO MY OWN VALIDATION OF THE 'log' SUBDOCUMENT BECAUSE MONGOOSE IS IGNORING ITS SCHEMA AND I AM TIRED OF RESEARCHING WHY.
   if (!reqBody.description) return done(new MyError('Description is required', 400));
+  const newExercise = {
+    description: reqBody.description
+  };
   
   if (!reqBody.duration) return done(new MyError('Duration is required', 400));
-  const duration = parseInt(reqBody.duration);
-  if (isNaN(duration)) return done(new MyError('Duration must be an integer', 400));
-  
-  if (!reqBody.date) return done(new MyError('Date is required', 400));
-  const date = new Date(reqBody.date);
-  if (isNaN(date)) return done(new MyError('Date must be a valid date in the format yyyy-mm-dd', 400));
-  // END OF UGGGH SECTION
+  newExercise.duration = parseInt(reqBody.duration);
+  if (isNaN(newExercise.duration)) return done(new MyError('Duration must be an integer', 400));
+
+  if (reqBody.date) {
+    // MANUAL VALIDATION:
+    newExercise.date = new Date(reqBody.date);
+    if (isNaN(newExercise.date)) return done(new MyError('Date must be a valid date in the format yyyy-mm-dd', 400));
+    // NOTE: if date is NOT entered, Mongoose schema should default it to current date.
+  }
 
   const query = { _id: reqBody[':_id'] };
+  // Add this new exercise to the log array for this user:
   const update = {
-    $push: { log: {
-      description: reqBody.description,
-      duration: duration,
-      date: date
-    }}
+    $push: { log: newExercise }
   };
   const options = { new: true }; // return updated doc inst of original
   User.findOneAndUpdate(query, update, options, (err, data) => {
@@ -80,7 +97,7 @@ const addExercise = (reqBody, done) => {
       }
       return done(err);
     };
-    console.log('Updated user doc:\n', JSON.stringify(data));
+    // console.log('Updated user doc:\n', JSON.stringify(data));
     // ASSUME the last exercise in the log array was the one we added:
     const exercise = data.log[data.log.length - 1];
     // console.log('last exercise doc:', exercise);
@@ -166,11 +183,21 @@ const getLogs = (_id, reqQuery, done) => {
     };
     // console.log('Query successful:', data);
     // This returns an array of 1 object. Instead just return the object:
-    done(null, data[0]);
+    data = data[0];
+    // Convert each date to this format: "Mon Aug 01 2022":
+    // NOTE: The MongoDB $dateToString function only returns nbrs, not NAMES of days.
+    data.log = data.log.map(exercise => {
+      exercise.date = exercise.date.toDateString();
+      return exercise;
+    })
+    done(null, data);
   });
 };
 
-exports.addUser = addUser;
-exports.addExercise = addExercise;
-exports.getLogs = getLogs;
+module.exports = {
+  addUser,
+  getAllUsers,
+  addExercise,
+  getLogs
+}
 console.log('DB.JS LOADED');
