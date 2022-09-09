@@ -21,7 +21,9 @@ const userSchema = new mongoose.Schema({
         min: [0, 'Duration must be greater than zero']
       },
       date: {
-        type: Date
+        type: Date,
+        // Date.now() returns the current unix timestamp as a number
+        default: Date.now
       }
     }
   ]
