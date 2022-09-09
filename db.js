@@ -62,7 +62,21 @@ const getAllUsers = (done) => {
 };
 
 const addExercise = (_id, reqBody, done) => {
-  console.log('About to add exercise to user. reqBody:\n', reqBody);
+  console.log('About to add exercise to user. _id:', _id, ', reqBody:\n', reqBody);
+
+  // DO MY OWN VALIDATION OF _id SO USER DOESN'T JUST GET "Internal Server Error"
+  // Check for invalid user id:
+  let objId;
+  try {
+    objId = mongoose.Types.ObjectId(_id);
+  } catch (err) {
+    if (err.name === 'BSONTypeError') {
+      console.error('Invalid _id format. _id =', _id);
+      return done(new MyError('Invalid _id format', 400));
+    }
+    console.log('Error converting _id to ObjectId');
+    return done(err);
+  }
 
   // UGGH, DO MY OWN VALIDATION OF THE 'log' SUBDOCUMENT BECAUSE MONGOOSE IS IGNORING ITS SCHEMA AND I AM TIRED OF RESEARCHING WHY.
   if (!reqBody.description) return done(new MyError('Description is required', 400));
@@ -81,7 +95,7 @@ const addExercise = (_id, reqBody, done) => {
     // NOTE: if date is NOT entered, Mongoose schema should default it to current date.
   }
 
-  const query = { _id: _id };
+  const query = { _id: objId };
   // Add this new exercise to the log array for this user:
   const update = {
     $push: { log: newExercise }
@@ -89,7 +103,7 @@ const addExercise = (_id, reqBody, done) => {
   const options = { new: true }; // return updated doc inst of original
   User.findOneAndUpdate(query, update, options, (err, data) => {
     if (err) {
-      if (err.name === "ValidationError") {
+      if (err.name === 'ValidationError') {
         console.error('Validation error:', err.errors.username.message);
       } else {
         // Log full error msg:
@@ -117,22 +131,35 @@ const addExercise = (_id, reqBody, done) => {
 };
 
 const getLogs = (_id, reqQuery, done) => {
+  // Check for invalid user id:
+  let objId;
+  try {
+    objId = mongoose.Types.ObjectId(_id);
+  } catch (err) {
+    if (err.name === 'BSONTypeError') {
+      console.error('Invalid _id format. _id =', _id);
+      return done(new MyError('Invalid _id format', 400));
+    }
+    console.log('Error converting _id to ObjectId');
+    return done(err);
+  }
+
   // Mongoose does not cast aggregation pipelines to the model's schema
   const pipeline = [
-    { '$match': { '_id': mongoose.Types.ObjectId(_id) }},
+    { $match: { _id: objId }},
     // Unwind the log array field, so 1 record per log entry:
-    { '$unwind': {
-        'path': '$log', 
-        'preserveNullAndEmptyArrays': false
+    { $unwind: {
+        path: '$log', 
+        preserveNullAndEmptyArrays: false
     }},
     // [NOT PART OF THE SPEC, BUT SEEMED IMPORTANT]
     // Sort exercises by ascending date:
     // NOTE: Can't use $sortArray cuz it was added in v5.2 and Atlas cloud db is at v5.0.12.
-    { '$sort': { 'log.date': 1 } }
+    { $sort: { 'log.date': 1 } }
   ];
   if (reqQuery.from || reqQuery.to) {
     // Match on exercise date:
-    pipeline.push({ '$match': { 'log.date': {}}});
+    pipeline.push({ $match: { 'log.date': {}}});
     if (reqQuery.from) {
       const fromDate = new Date(reqQuery.from);
       // Check if invalid date (400, bad request)
@@ -150,26 +177,26 @@ const getLogs = (_id, reqQuery, done) => {
     const limit = parseInt(reqQuery.limit);
     // Check if invalid nbr (400, bad request)
     if (isNaN(limit)) return done(new MyError('Invalid "limit"', 400));
-    pipeline.push({ '$limit': limit });
+    pipeline.push({ $limit: limit });
   }
 
   // Regroup by user:
-  pipeline.push({ '$group': {
+  pipeline.push({ $group: {
     _id: '$_id',
-    username: { "$first": "$username" },
+    username: { $first: '$username' },
     // Recreate 'log' array, but w/o _id field inside it (CHANGED TO USE PROJECT BELOW INSTEAD):
     // log: { "$push": {
     //   date: '$log.date', 
     //   duration: '$log.duration', 
     //   description: '$log.description'
     // }}
-    log: { "$push": '$log' }
+    log: { $push: '$log' }
   }});
 
   // Remove the log._id field and add the count field:
-  pipeline.push({ '$project': {
-    'username': 1,
-    'count': { '$size': '$log' },  // Nbr items in 'log' array
+  pipeline.push({ $project: {
+    username: 1,
+    count: { '$size': '$log' },  // Nbr items in 'log' array
     'log.date': 1,
     'log.duration': 1,
     'log.description': 1,
@@ -182,6 +209,8 @@ const getLogs = (_id, reqQuery, done) => {
       return done(err);
     };
     // console.log('Query successful:', data);
+    if (data.length === 0) return done(new MyError('User id not found', 400));
+
     // This returns an array of 1 object. Instead just return the object:
     data = data[0];
     // Convert each date to this format: "Mon Aug 01 2022":
