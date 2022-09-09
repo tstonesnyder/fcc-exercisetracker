@@ -53,6 +53,7 @@ app.post('/api/users', urlencodedParser, (req, res, next) => {
   });
 });
 
+
 app.get('/api/users', urlencodedParser, (req, res, next) => {
   db.getAllUsers(function (err, data) {
     if (err) {
@@ -64,6 +65,7 @@ app.get('/api/users', urlencodedParser, (req, res, next) => {
     }
   });
 });
+
 
 app.post('/api/users/:_id/exercises', urlencodedParser, (req, res, next) => {
   // Get _id from the params, instead of from the body
@@ -82,6 +84,12 @@ app.post('/api/users/:_id/exercises', urlencodedParser, (req, res, next) => {
     }
   });
 });
+// This path matches if user doesn't enter the _id on the add exercise form (the front end doesn't check).
+// So give a better error msg than just a 404 error.
+app.post('/api/users//exercises', function (req, res) {
+  res.status(400).type("txt").send('_id is required');
+});
+
 
 // PATH:   /api/users/:_id/logs?[from][to][limit]
 // from, to, and limit are optional
@@ -98,10 +106,12 @@ app.get('/api/users/:_id/logs', (req, res, next) => {
   });
 });
 
+
 // Unmatched routes handler
 app.use(function (req, res) {
-  res.status(404).type("txt").send("Not Found");
+  res.status(404).type('txt').send('ERROR: Path not found');
 });
+
 
 // Custom error handler
 app.use(function errorHandler (err, req, res, next) {
