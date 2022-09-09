@@ -108,7 +108,7 @@ const addExercise = (_id, reqBody, done) => {
       // date: reqBody.date,
       // duration: reqBody.duration,
       // description: reqBody.description
-      date: exercise.date,
+      date: exercise.date.toDateString(),
       duration: exercise.duration,
       description: exercise.description
     };
