@@ -66,26 +66,21 @@ app.get('/api/users', urlencodedParser, (req, res, next) => {
 });
 
 app.post('/api/users/:_id/exercises', urlencodedParser, (req, res, next) => {
-  if (req.params._id !== req.body[':_id']) {
-    // NOTE: Really both of these ids should not be sent, but I'm not changing the front end.
-    console.error('req.params._id:', req.params._id, 'req.body._id:', req.body[':_id']);
-    res.status(400).json({ Error: 'Mismatched user _id!' });
-  } else {
-    db.addExercise(req.body, function (err, data) {
-      if (err) {
-        if (err.name === "ValidationError") {
-          // Pass the custom error msg to the user:
-          res.status(400).json(err);
-        } else {
-          // If PRODUCTION, user will get "Internal server error" message.
-          // If DEVELOPMENT, user will get full error message.
-          return next(err);
-        }
+  // Get _id from the params, instead of from the body
+  db.addExercise(req.params._id, req.body, function (err, data) {
+    if (err) {
+      if (err.name === "ValidationError") {
+        // Pass the custom error msg to the user:
+        res.status(400).json(err);
       } else {
-        res.json(data);
+        // If PRODUCTION, user will get "Internal server error" message.
+        // If DEVELOPMENT, user will get full error message.
+        return next(err);
       }
-    });
-  }
+    } else {
+      res.json(data);
+    }
+  });
 });
 
 // PATH:   /api/users/:_id/logs?[from][to][limit]

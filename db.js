@@ -61,7 +61,7 @@ const getAllUsers = (done) => {
   });
 };
 
-const addExercise = (reqBody, done) => {
+const addExercise = (_id, reqBody, done) => {
   console.log('About to add exercise to user. reqBody:\n', reqBody);
 
   // UGGH, DO MY OWN VALIDATION OF THE 'log' SUBDOCUMENT BECAUSE MONGOOSE IS IGNORING ITS SCHEMA AND I AM TIRED OF RESEARCHING WHY.
@@ -81,7 +81,7 @@ const addExercise = (reqBody, done) => {
     // NOTE: if date is NOT entered, Mongoose schema should default it to current date.
   }
 
-  const query = { _id: reqBody[':_id'] };
+  const query = { _id: _id };
   // Add this new exercise to the log array for this user:
   const update = {
     $push: { log: newExercise }
